@@ -20,6 +20,7 @@ typedef struct erow{
   int rsize;
   char *chars;
   char *render;
+  unsigned char *hl; 
 } erow;
 
 /*** defines ***/
@@ -48,6 +49,11 @@ enum editorKey{
   END_KEY,
   PAGE_UP,
   PAGE_DOWN
+};
+
+enum editorHighlight{
+  HL_NORMAL = 0,
+  HL_NUMBER
 };
 
 /*** data ***/
@@ -238,6 +244,7 @@ void editorInsertRow(int at, char *s, size_t len) {
   E.row[at].chars[len] = '\0';
   E.row[at].rsize = 0;
   E.row[at].render = NULL;
+  E.row[at].hl = NULL;
   editorUpdateRow(&E.row[at]);
   E.numrows++;
   E.dirty++;
@@ -246,7 +253,8 @@ void editorInsertRow(int at, char *s, size_t len) {
 void editorFreeRow(erow *row){
   free(row->render);
   free(row->chars);
-}
+  free(row->hl);
+  }
 
 void editorDelRow(int at){
   if (at < 0 || at >= E.numrows) return;
@@ -526,11 +534,20 @@ void editorDrawRows(struct abuf *ab) {
       int len = E.row[filerow].rsize - E.coloff;
       if(len < 0 ) len = 0;
       if (len > E.screencols) len = E.screencols;
-      abAppend(ab, &E.row[filerow].render[E.coloff], len);
+      char *c = &E.row[filerow].render[E.coloff];
+      int j;
+      for (j = 0; j < len; j++){
+        if (isdigit(c[j])){
+          abAppend(ab, "\x1b[31m", 5);
+          abAppend(ab, &c[j], 1);
+          abAppend(ab, "\x1b[39m", 5);
+        } else {
+          abAppend(ab, &c[j], 1);
+        }
+      }
     }
     abAppend(ab, "\x1b[K", 3);
-    
-      abAppend(ab, "\r\n", 2);
+    abAppend(ab, "\r\n", 2);
     }
 }
 
