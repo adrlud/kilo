@@ -220,6 +220,8 @@ void editorUpdateSyntax(erow *row){
   row->hl = realloc(row->hl, row->rsize);
   memset(row->hl, HL_NORMAL, row->rsize);
 
+  if( E.syntax == NULL) return;
+
   int prev_sep = 1;
   
   int i = 0;
@@ -227,12 +229,14 @@ void editorUpdateSyntax(erow *row){
     char c = row->render[i];
     unsigned char prev_hl = (i > 0) ? row->hl[i-1] : HL_NORMAL;
 
-    if((isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) || (c == '.' && prev_hl == HL_NUMBER)) {
-      row->hl[i] = HL_NUMBER;
-      i++;
-      prev_sep = 0;
-      continue;
-    } 
+    if(E.syntax->flags & HL_HIGHLIGHT_NUMBERS){
+      if((isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) || (c == '.' && prev_hl == HL_NUMBER)) {
+        row->hl[i] = HL_NUMBER;
+        i++;
+        prev_sep = 0;
+        continue;
+      } 
+    }
 
     prev_sep = is_separator(c);
     i++;
@@ -245,6 +249,11 @@ int editorSyntaxToColor(int hl){
     case HL_MATCH: return 34;
     default: return 37;
   }
+}
+
+void editorSelectSyntaxHighlight(){
+  E.syntax = NULL;
+  if (E.filename == NULL) return;
 }
 
 /*** row operations ***/
@@ -650,7 +659,7 @@ void editorDrawStatusBar(struct abuf *ab) {
    int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
     E.filename ? E.filename : "[No Name]", E.numrows,
     E.dirty ? "(modified)" : "");
-   int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d", E.cy+1, E.numrows);
+  int rlen = snprintf(rstatus, sizeof(rstatus), "%s | %d/%d", E.syntax ? E.syntax->filetype : "no filetype", E.cy+1, E.numrows);
 
   if (len > E.screencols) len = E.screencols;
   abAppend(ab, status, len);
@@ -792,7 +801,7 @@ void editorProcessKeypress() {
 
     case CTRL_KEY('q'):
         if( E.dirty  && quit_times > 0){
-          editorSetStatusMessage("Warning! File has unsaved changes. Press Ctrl-Q %d more times to quit", quit_times );
+          editorSetStatusMessage("Warning! File has unsaved changes. Press Ctrl-Q %d more times to quit", quit_times);
         quit_times--;
         return;
         }
